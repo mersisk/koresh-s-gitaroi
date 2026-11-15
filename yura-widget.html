@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Юра — кореш с гитарой</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color-scheme:light}
+.widget{position:absolute;left:50%;top:50%;width:min(240px,68vw,calc(74svh * .747));aspect-ratio:112/150;transform:translate(-50%,-50%) translate3d(var(--x,0px),var(--y,0px),0);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;outline:none}
+.widget:active{cursor:grabbing}.widget:focus-visible{outline:2px solid #176d68;outline-offset:4px;border-radius:12px}
+.art{width:100%;height:100%;display:block;overflow:hidden}
+.controls{position:absolute;left:50%;bottom:-42px;transform:translateX(-50%);display:flex;gap:8px}
+.controls button{width:34px;height:34px;border:1px solid #8f755d;border-radius:50%;background:#f4eadb;color:#3f2a20;font:700 14px system-ui;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.controls button:active{background:#dcc9af}.controls button:focus-visible{outline:2px solid #176d68;outline-offset:2px}
+.art{scale:-1 1;transform-origin:50% 92%;animation:breathe 2.4s ease-in-out infinite}
+body.playing .art{animation:groove .9s ease-in-out infinite}
+body.is-paused .art{animation-play-state:paused}
+@keyframes breathe{50%{transform:translateY(-1.2%) scaleY(1.01)}}
+@keyframes groove{25%{transform:rotate(-1.6deg) translateY(-1%)}75%{transform:rotate(1.6deg) translateY(-1%)}}
+.notes{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.note{position:absolute;left:30%;top:44%;font:700 16px/1 Georgia,serif;color:#245e58;opacity:0;animation:note-up 2.2s ease-out forwards}
+@keyframes note-up{0%{opacity:0;transform:translate(0,0) rotate(0) scale(.6)}15%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-120%) rotate(var(--r)) scale(1.1)}}
+@media(prefers-reduced-motion:reduce){.art,.note{animation:none!important}}
+.embed .widget{width:100%;height:100%;cursor:default}.embed .controls{display:none}
+@media(hover:hover) and (pointer:fine){.controls button:hover{background:#e8d8bf}}
+</style></head><body>
+<!-- 8x8 character sheet, paper removed offline (assets/images/yura-sheet.webp). -->
+<main id="widget" class="widget" tabindex="0" role="group" aria-label="Юра с гитарой. Перетаскивайте мышью или пальцем; используйте стрелки с клавиатуры.">
+<svg class="art" id="character" viewBox="0 0 112 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Юра сидит в чёрном кресле и играет на гитаре">
+<defs><filter id="paper-key" x="0" y="0" width="112" height="150" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feComponentTransfer in="SourceGraphic" result="white-channels"><feFuncR type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1"/><feFuncG type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1"/><feFuncB type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1"/></feComponentTransfer>
+<feColorMatrix in="white-channels" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 1 1 0 -2" result="paper"/>
+<feComposite in="SourceGraphic" in2="paper" operator="out"/>
+</filter><clipPath id="cell"><rect width="112" height="150"/></clipPath></defs>
+<g clip-path="url(#cell)"><image id="sheet" width="896" height="1200" x="0" y="0" href="assets/images/yura-sheet.webp"/></g>
+</svg>
+<div class="notes" id="notes" aria-hidden="true"></div><div class="controls"><button id="pause" type="button" aria-label="Приостановить анимацию" aria-pressed="false">Ⅱ</button></div></main>
+<script>
+(()=>{'use strict';
+const shell=document.querySelector('#widget'),sheet=document.querySelector('#sheet'),button=document.querySelector('#pause');
+const embed=new URLSearchParams(location.search).get('embed')==='1';if(embed)document.body.classList.add('embed');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)'),LOOP=7200;
+let paused=reduce.matches,manual=false,elapsed=0,started=performance.now(),raf=0,last=-1;
+// Favour open-eyed, seated poses. Brief closed-eye frames occur at the blink and singing phrase.
+const strum=[[32,33,34,35,36,37,38,39],[40,41,42,43,44,45,46,47],[48,49,50,51,52,53,54,55],[56,57,58,59,60,61,62,63]];
+const phrases=[[0,4,0,5,0,4,0,5],[8,12,8,13,8,12,8,13],[16,20,19,22,16,20,19,22],[24,28,24,29,27,28,31,29]];
+function renderPose(ms){
+ const t=((Number(ms)||0)%LOOP+LOOP)%LOOP,phrase=Math.floor(t/1800),step=Math.floor((t%1800)/225);
+ let frame=phrases[phrase][step];
+ if(typeof playing!=='undefined'&&playing){const tp=((Number(ms)||0)%4480+4480)%4480;frame=strum[Math.floor(tp/1120)][Math.floor((tp%1120)/140)];}
+ if(t>=3320&&t<3500)frame=1;if(t>=6920&&t<7100)frame=17;
+ if(frame!==last){sheet.setAttribute('x',String(-(frame%8)*112));sheet.setAttribute('y',String(-Math.floor(frame/8)*150));last=frame;}
+ elapsed=t;return t;
+}
+function stop(){if(raf){cancelAnimationFrame(raf);raf=0}}
+function schedule(){if(!raf&&!paused&&!manual&&!document.hidden)raf=requestAnimationFrame(tick)}
+let speed=1,playing=false,noteTimer=0;const notesBox=document.querySelector('#notes');
+function tick(now){raf=0;if(paused||manual||document.hidden)return;renderPose(elapsed+(now-started)*speed);started=now;schedule()}
+function spawnNote(){if(!playing||paused||document.hidden)return;const n=document.createElement('span');n.className='note';n.textContent=['♪','♫','♩','♬'][Math.random()*4|0];n.style.setProperty('--dx',`${-(Math.random()*60+10).toFixed(0)}%`);n.style.setProperty('--r',`${(Math.random()*40-20).toFixed(0)}deg`);n.style.left=`${18+Math.random()*15}%`;notesBox.appendChild(n);setTimeout(()=>n.remove(),2300)}
+function setPlaying(v){playing=!!v;speed=1;document.body.classList.toggle('playing',playing);clearInterval(noteTimer);if(playing&&!reduce.matches)noteTimer=setInterval(spawnNote,520)}
+function paint(){button.textContent=paused?'▶':'Ⅱ';button.setAttribute('aria-label',paused?'Продолжить анимацию':'Приостановить анимацию');button.setAttribute('aria-pressed',String(paused))}
+function setPaused(value){paused=!!value;manual=false;started=performance.now();document.body.classList.toggle('is-paused',paused);paint();paused?stop():schedule();return paused}
+button.addEventListener('pointerdown',e=>e.stopPropagation());button.addEventListener('click',()=>setPaused(!paused));
+reduce.addEventListener?.('change',e=>{if(e.matches)setPaused(true)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else{started=performance.now();schedule()}});
+addEventListener('message',e=>{if(e.source!==parent||e.origin!==location.origin)return;if(e.data?.type==='yura-widget-motion'&&typeof e.data.paused==='boolean')setPaused(e.data.paused);if(e.data?.type==='yura-widget-playing')setPlaying(e.data.playing)});
+let position={x:0,y:0},drag=null;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function place(x,y){const r=shell.getBoundingClientRect(),mx=Math.max(0,(innerWidth-r.width)/2-8),my=Math.max(0,(innerHeight-r.height)/2-48);position={x:clamp(x,-mx,mx),y:clamp(y,-my,my)};shell.style.setProperty('--x',`${position.x}px`);shell.style.setProperty('--y',`${position.y}px`)}
+if(!embed){
+ shell.addEventListener('pointerdown',e=>{if(!e.isPrimary||e.button!==0||drag||e.target.closest('button'))return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,bx:position.x,by:position.y};shell.setPointerCapture(e.pointerId)});
+ shell.addEventListener('pointermove',e=>{if(drag&&e.pointerId===drag.id)place(drag.bx+e.clientX-drag.x,drag.by+e.clientY-drag.y)});
+ const end=e=>{if(!drag||e.pointerId!==drag.id)return;drag=null;if(shell.hasPointerCapture(e.pointerId))shell.releasePointerCapture(e.pointerId)};
+ ['pointerup','pointercancel','lostpointercapture'].forEach(type=>shell.addEventListener(type,end));
+ shell.addEventListener('keydown',e=>{const arrows={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]},d=arrows[e.key];if(!d)return;e.preventDefault();const step=e.shiftKey?32:8;place(position.x+d[0]*step,position.y+d[1]*step)});
+ addEventListener('resize',()=>place(position.x,position.y));
+}
+window.YuraWidget={renderAt(ms){manual=true;paused=true;stop();paint();return renderPose(ms)},pause(){return setPaused(true)},play(){return setPaused(false)},setPaused,get paused(){return paused},duration:LOOP};
+// Keep the connected character in each cell, excluding fragments from neighbouring poses.
+function cleanCell(pixels,width,height){
+ const count=width*height,mask=new Uint8Array(count),seen=new Uint8Array(count),background=new Uint8Array(count),queue=[];
+ const isPaper=i=>pixels[i*4+3]===0||Math.min(pixels[i*4],pixels[i*4+1],pixels[i*4+2])>=205;
+ const visit=i=>{if(!background[i]&&isPaper(i)){background[i]=1;queue.push(i)}};
+ for(let x=0;x<width;x++){visit(x);visit((height-1)*width+x)}
+ for(let y=0;y<height;y++){visit(y*width);visit(y*width+width-1)}
+ for(let q=0;q<queue.length;q++){
+  const i=queue[q],x=i%width,y=Math.floor(i/width);
+  if(x>0)visit(i-1);if(x<width-1)visit(i+1);if(y>0)visit(i-width);if(y<height-1)visit(i+width);
+ }
+ for(let i=0;i<count;i++)mask[i]=!background[i]&&pixels[i*4+3]>0?1:0;
+ let largest=[];
+ for(let start=0;start<count;start++){
+  if(!mask[start]||seen[start])continue;
+  const component=[start];seen[start]=1;
+  for(let q=0;q<component.length;q++){
+   const i=component[q],x=i%width,y=Math.floor(i/width);
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=x+dx,ny=y+dy;if(nx<0||nx>=width||ny<0||ny>=height)continue;
+    const n=ny*width+nx;if(mask[n]&&!seen[n]){seen[n]=1;component.push(n)}
+   }
+  }
+  if(component.length>largest.length)largest=component;
+ }
+ const keep=new Uint8Array(count);largest.forEach(i=>keep[i]=1);
+ for(let i=0;i<count;i++)if(!keep[i])pixels[i*4+3]=0;
+ return pixels;
+}
+function prepareCleanSheet(){
+ if(typeof Image!=='function')return;
+ const source=new Image();
+ source.onload=()=>{
+  const canvas=document.createElement('canvas');canvas.width=896;canvas.height=1200;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(source,0,0);
+  for(let row=0;row<8;row++)for(let col=0;col<8;col++){
+   const cell=ctx.getImageData(col*112,row*150,112,150);
+   cleanCell(cell.data,112,150);ctx.putImageData(cell,col*112,row*150);
+  }
+  sheet.setAttribute('href',canvas.toDataURL('image/png'));
+  sheet.parentElement.removeAttribute('filter');
+ };
+ source.src=sheet.getAttribute('href');
+}
+
+renderPose(0);paint();schedule();
+})();
+</script></body></html>
