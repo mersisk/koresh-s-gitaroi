@@ -5,7 +5,7 @@
   const pct = loader.querySelector('[data-loader-pct]');
   const notes = [...loader.querySelectorAll('.ld-note')];
   const MIN_MS = 1300, MAX_MS = 7000, started = performance.now();
-  const urls = ['assets/images/intro-yura-amp.webp', 'assets/images/intro-guitar-v3.webp', 'assets/images/intro-fist.webp', 'assets/images/intro-lhand2.webp',
+  const urls = ['assets/images/intro-yura-amp.webp', 'assets/images/logo-graffiti-v2.webp', 'assets/images/intro-guitar-v3.webp', 'assets/images/intro-fist.webp', 'assets/images/intro-lhand2.webp',
     'assets/images/yura-sheet.webp', 'assets/images/yura-suit-cutout.webp'];
   const tasks = urls.map(src => new Promise(done => { const im = new Image(); im.src = src; (im.decode ? im.decode() : Promise.reject()).then(done, () => { im.onload = im.onerror = done; if (im.complete) done(); }); }));
   if (document.fonts && document.fonts.ready) tasks.push(document.fonts.ready);

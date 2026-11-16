@@ -83,3 +83,24 @@
     });
   });
 })();
+
+// Intro logo: keep it fully inside the viewport. Too tall for a short screen -> shrink it from the bottom up.
+(() => {
+  const logo = document.querySelector('.st-logo');
+  if (!logo) return;
+  const fit = () => {
+    logo.style.setProperty('--fit', '1');
+    const r = logo.getBoundingClientRect();
+    // phone: the intro tagline sits above the stage, so the logo must stay below it; elsewhere only the viewport edge counts
+    const tag = [document.querySelector('.intro-welcome'), document.querySelector('.intro-gate-inner > h2')]
+      .filter(el => el && el.getClientRects().length).map(el => el.getBoundingClientRect().bottom).reduce((m, b) => Math.max(m, b), 0);
+    const minTop = matchMedia('(max-width: 760px)').matches ? Math.max(14, tag + 10) : 14;
+    if (r.height && r.top < minTop) {
+      const oy = r.top + r.height * .85;                    // transform-origin sits at 85% of the height
+      logo.style.setProperty('--fit', Math.max(.45, (oy - minTop) / (oy - r.top)).toFixed(3));
+    }
+  };
+  addEventListener('resize', fit);
+  addEventListener('load', fit);
+  fit();
+})();
